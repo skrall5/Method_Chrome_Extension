@@ -1,19 +1,15 @@
-// For Work Order Images (https://overheaddoorcoofeasternidaho.method.me/apps/Default.aspx#/bf4dfc11-26a7-4768-8775-bbe03cc97bc9)
-
-// PROD TODO: Publish the work order screen with my changes (Made it so that images weren't inside an a tag)
+// For Work Order Images ( ie. on https://overheaddoorcoofeasternidaho.method.me/apps/Default.aspx#/bf4dfc11-26a7-4768-8775-bbe03cc97bc9)
 
 // --- ADD THE OPTION TO SELECT --- //
 function handleConfirmBody(confirmBody) {
     if (!confirmBody) return;
 
-    const children = Array.from(confirmBody.children);
-    const allAreImages = children.length > 0 && children.every(child => child.tagName === "IMG");
-    if (!allAreImages) return;
-
     console.log("Processing confirmBody images...");
-
+    
+    const children = Array.from(confirmBody.children);
     children.forEach((image) => {
-        // Avoid rewrapping if we've already processed this image
+        // Avoid rewrapping if we've already processed this image or if this isn't an image
+        if (image.tagName !== "IMG") return;
         if (image.parentElement.classList.contains("image-wrapper")) return;
 
         // Create a wrapper
@@ -131,21 +127,29 @@ function addDownloadButton(footer) {
 
     // Download logic
     downloadBtn.addEventListener("click", async () => {
-        const selectedImages = Array.from(document.querySelectorAll(".image-wrapper[data-selected='true']"))
-            .map(w => w.querySelector("img").src);
+        const confirmBody = document.querySelector("#confirmBody");
+        const entityName = confirmBody.querySelector("#hidden_entity_name")?.innerHTML.split(":")[0];
+        const jobName = confirmBody.querySelector("#hidden_job_name")?.innerHTML;
+        const pictureLabel = (entityName && jobName) && (`${entityName} - ${jobName}`) || "image";
+        const children = Array.from(confirmBody.children);
+        const selectedImages = children.reduce( (images, thisElement, idx) =>  {
+            const selected = thisElement.getAttribute("data-selected");
+            if (selected !== "true") return images;
+            return [...images, { src: thisElement.querySelector("img").src, idx: idx-1 }];
+        }, []);
 
         if (selectedImages.length === 0) {
             alert("Please select at least one image to download.");
             return;
         }
 
-        for (const src of selectedImages) {
+        for (const { src, idx } of selectedImages) {
             try {
-                const filename = src.split("/").pop().split("?")[0] || "image.jpg";
+                const filename = `${pictureLabel} ${idx}.jpg`;
                 chrome.runtime.sendMessage({
                     action: "download",
                     url: src,
-                    filename: filename
+                    filename
                 });
             } catch (err) {
                 console.error("Failed to download image:", src, err);
